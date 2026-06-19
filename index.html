@@ -170,7 +170,8 @@ h1,h2,h3,h4,.quiz-q{text-wrap:balance}
         <div class="ctrl"><label>Lemezvastagság t [m] <span class="val" id="tV"></span></label><input type="range" id="t" min="0.2" max="1.6" step="0.05"></div>
         <div class="ctrl"><label>Lemezszélesség B [m] <span class="val" id="bV"></span></label><input type="range" id="B" min="4" max="20" step="0.5"></div>
         <div class="ctrl"><label>Talaj rugalmassági modulusa E<sub>talaj</sub> [MPa] <span class="val" id="esV"></span></label><input type="range" id="es" min="3" max="80" step="1"></div>
-        <div class="ctrl"><label>Átlagos teher q [kPa] <span class="val" id="qV"></span></label><input type="range" id="q" min="0" max="300" step="10"></div>
+        <div class="ctrl" id="qrow"><label>Átlagos teher q [kPa] <span class="val" id="qV"></span></label><input type="range" id="q" min="0" max="300" step="10"></div>
+        <div class="ctrl" id="Frow" style="display:none"><label>Középső koncentrált erő F [kN] <span class="val" id="FV"></span></label><input type="range" id="F" min="0" max="1000" step="10"></div>
         <p style="font-size:.86rem;margin-top:.6rem">A&nbsp;felső ábrán a&nbsp;<span style="color:var(--load);font-weight:700">talpfeszültség</span> (lefelé), a&nbsp;<span style="color:var(--settle);font-weight:700">süllyedési teknő</span> (a&nbsp;lemez lehajlása) és a&nbsp;Winkler-rugók; alatta a&nbsp;<strong>hajlító nyomaték</strong>. Növeld a&nbsp;vastagságot → merevebb (perem-csúcs, nagy nyomaték); vékonyítsd → hajlékony (teher követése, teknő).</p>
       </div>
     </div>
@@ -217,7 +218,7 @@ h1,h2,h3,h4,.quiz-q{text-wrap:balance}
 <script>
 const $=id=>document.getElementById(id);
 /* ───────── állapot ───────── */
-const S={t:0.5,B:10,es:20,q:120,load:'uniform'};
+const S={t:0.5,B:10,es:20,q:120,F:600,load:'uniform'};
 const DEF=Object.assign({},S);
 const EC=3.0e7;          // beton rugalmassági modulus [kPa] (~30 GPa)
 const NU=0.30;           // talaj Poisson-tényező
@@ -261,11 +262,7 @@ function analyse(){
   // alkalmazott teher-eloszlás a(x) [kPa], azonos összteherrel (Q = q·B)
   const a=new Array(N).fill(0);
   if(S.load==='uniform'){ for(let i=0;i<N;i++)a[i]=S.q; }
-  else { // középső oszlopteher: a teljes terhet a középső ~1,5 m-re koncentráljuk
-    const wcol=Math.max(1.5,2*b), Q=S.q*B, half=wcol/2;
-    let cnt=0; for(let i=0;i<N;i++) if(Math.abs(x[i])<=half) cnt++;
-    const pc=Q/(cnt*b); for(let i=0;i<N;i++) if(Math.abs(x[i])<=half) a[i]=pc;
-  }
+  else { a[(N-1)/2]=S.F/b; }   // 1 db koncentrált erő (F [kN/m]) pontosan a lemez közepén
   const Qtot=a.reduce((s,v)=>s+v*b,0);
   // hajlékony határeset: p = a (a lemez közvetlenül átadja a terhet)
   const pFlex=a.slice();
@@ -410,7 +407,9 @@ function classify(lam){
 }
 function update(){
   $("tV").textContent=S.t.toFixed(2)+' m';$("bV").textContent=S.B.toFixed(1)+' m';
-  $("esV").textContent=S.es+' MPa';$("qV").textContent=S.q+' kPa';
+  $("esV").textContent=S.es+' MPa';$("qV").textContent=S.q+' kPa';$("FV").textContent=S.F+' kN';
+  $("qrow").style.display=(S.load==='uniform')?'':'none';
+  $("Frow").style.display=(S.load==='column')?'':'none';
   const r=analyse(); draw(r);
   const [cl,bg,fg]=classify(r.lam);
   $("classBadge").textContent=cl+'  ·  λ = '+r.lam.toFixed(2);
@@ -425,7 +424,7 @@ function update(){
 }
 
 /* ───────── vezérlők ───────── */
-const fmt={t:'tV',B:'bV',es:'esV',q:'qV'};
+const fmt={t:'tV',B:'bV',es:'esV',q:'qV',F:'FV'};
 function sync(){for(const k in fmt)$(k).value=S[k];}
 for(const k in fmt) $(k).addEventListener('input',e=>{S[k]=parseFloat(e.target.value);update();});
 $("loadSeg").addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;S.load=b.dataset.l;
