@@ -238,6 +238,13 @@ function solve(A,b){ // Gauss-elimináció részleges főelem-választással; A:
   return x;
 }
 function matVec(A,v){return A.map(r=>{let s=0;for(let j=0;j<v.length;j++)s+=r[j]*v[j];return s;});}
+function matMat(A,B){const n=A.length,m=B[0].length,K=B.length,C=[];for(let i=0;i<n;i++){C[i]=new Array(m).fill(0);for(let k=0;k<K;k++){const aik=A[i][k];if(!aik)continue;for(let j=0;j<m;j++)C[i][j]+=aik*B[k][j];}}return C;}
+/* szabad-szabad gerenda 4. derivált operátora (véges differencia, M=V=0 a végeken) */
+function buildD4(n,dx4){const D=[];for(let i=0;i<n;i++)D[i]=new Array(n).fill(0);
+  function set(i,arr,st){for(let k=0;k<arr.length;k++){const j=st+k;if(j>=0&&j<n)D[i][j]+=arr[k]/dx4;}}
+  for(let i=0;i<n;i++){ if(i===0)set(i,[2,-4,2],0); else if(i===1)set(i,[-2,5,-4,1],0);
+    else if(i===n-1)set(i,[2,-4,2],n-3); else if(i===n-2)set(i,[1,-4,5,-2],n-4);
+    else set(i,[1,-4,6,-4,1],i-2);} return D; }
 
 /* ───────── talaj-rugalmasság (befolyásmátrix) ─────────
    s = M · p ,  ahol p a talpfeszültség [kPa], s a süllyedés [m].
@@ -264,19 +271,16 @@ function analyse(){
   if(S.load==='uniform'){ for(let i=0;i<N;i++)a[i]=S.q; }
   else { a[(N-1)/2]=S.F/b; }   // 1 db koncentrált erő (F [kN/m]) pontosan a lemez közepén
   const Qtot=a.reduce((s,v)=>s+v*b,0);
-  // hajlékony határeset: p = a (a lemez közvetlenül átadja a terhet)
-  const pFlex=a.slice();
-  // merev határeset: egyenletes süllyedés → M·(p·b) = s0 · 1
-  const y=solve(M,new Array(N).fill(1));       // y = M^{-1} · 1
-  const sumY=y.reduce((s,v)=>s+v,0);
-  const s0=Qtot/(b*sumY);
-  const pRig=y.map(v=>s0*v);                    // perem-csúcsos eloszlás
-  // relatív merevség és keverési tényező
+  // relatív merevség (a besoroláshoz / címkéhez)
   const I=Math.pow(S.t,3)/12;
   const Krel=(EC*I)/((S.es*1000)*Math.pow(B,3));
-  const lam=Krel/(Krel+0.018);                  // 0 = hajlékony, 1 = merev
-  // kevert talpfeszültség + süllyedés
-  const p=[]; for(let i=0;i<N;i++) p[i]=(1-lam)*pFlex[i]+lam*pRig[i];
+  const lam=Krel/(Krel+0.018);                  // 0 = hajlékony, 1 = merev (csak címke)
+  // CSATOLT megoldás — gerenda rugalmas féltéren:  EI·w'''' = a − p ,  w = M·p
+  //   →  (EI·D4·M + I)·p = a    (p talpfeszültség, w = s süllyedés)
+  // A merevséggel arányosan keni szét a terhet (karakterisztikus hossz) — koncentrált erőt is.
+  const EI=EC*I, D4=buildD4(N,Math.pow(b,4)), D4M=matMat(D4,M);
+  const A=[]; for(let i=0;i<N;i++){ A[i]=new Array(N); for(let j=0;j<N;j++) A[i][j]=EI*D4M[i][j]+(i===j?1:0); }
+  const p=solve(A,a.slice());
   const s=matVec(M,p);                          // süllyedés [m]
   // hajlító nyomaték: kettős integrál a nettó (a−p) terhelésből, szabad végekkel
   const net=p.map((pi,i)=>a[i]-pi);             // [kPa] (lefelé poz. teher − reakció)
