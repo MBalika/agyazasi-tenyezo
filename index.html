@@ -305,7 +305,11 @@ function draw(r){
   const X=x=> mL+(x+B/2)/B*plotW;            // modell-x → képernyő
   const yref=130;                            // eredeti terepszint (deformálatlan) y
   let g='';
-  const sMaxAbs=Math.max(...r.s.map(Math.abs),1e-4), sSc=Math.min(46/sMaxAbs,4000);
+  // süllyedés-skála: a TEHERREL arányosan nő (a referencia-teherre normálva, hogy keretben maradjon)
+  const sMaxAbs=Math.max(...r.s.map(Math.abs),1e-9);
+  const refLoad=(S.load==='uniform')?300:1000, curLoad=(S.load==='uniform')?Math.max(S.q,1e-6):Math.max(S.F,1e-6);
+  const sRefMax=sMaxAbs*refLoad/curLoad;        // süllyedés a max. tehernél → ~70 px (azonos képméret)
+  const sSc=Math.min(70/Math.max(sRefMax,1e-4),8000);
   const raftH=Math.max(8,Math.min(26,S.t*16));
   const usY=i=> yref + r.s[i]*sSc;           // a lemez ALSÓ síkja (= süllyedt talajfelszín)
   // TALAJ — közvetlenül a lemez alsó síkjától indul (a süllyedt felszínt követi)
@@ -322,7 +326,7 @@ function draw(r){
     g+='<path d="'+zz+'" fill="none" stroke="#8a93a0" stroke-width="1" opacity="0.5"/>';
   }
   // TALPFESZÜLTSÉG-ábra a lemez alól lefelé (rozsda), arányos p-vel
-  const pMaxAbs=Math.max(...r.p.map(Math.abs),1), pSc=64/pMaxAbs;
+  const pMaxAbs=Math.max(...r.p.map(Math.abs),1), pSc=128/pMaxAbs;
   let pp='';
   for(let i=0;i<N;i++){ const px=X(r.x[i]).toFixed(1); pp+=(i?' L':'M')+px+' '+usY(i).toFixed(1); }
   for(let i=N-1;i>=0;i--){ const px=X(r.x[i]).toFixed(1); pp+=' L'+px+' '+(usY(i)+r.p[i]*pSc).toFixed(1); }
@@ -332,21 +336,29 @@ function draw(r){
   for(let i=0;i<N;i++){ const px=X(r.x[i]).toFixed(1); rtop+=(i?' L':'M')+px+' '+(usY(i)-raftH).toFixed(1); }
   for(let i=N-1;i>=0;i--){ const px=X(r.x[i]).toFixed(1); rbot+=' L'+px+' '+usY(i).toFixed(1); }
   g+='<path d="'+rtop+rbot+' Z" fill="#aab2bb" stroke="#5f6973" stroke-width="1.2"/>';
-  // teher-nyilak a lemez tetején
+  // teher a lemez tetején
   const aMax=Math.max(...r.a,1);
-  for(let i=2;i<N;i+=4){ if(r.a[i]<=0)continue; const px=X(r.x[i]), len=10+r.a[i]/aMax*22, yt=usY(i)-raftH;
-    g+='<line x1="'+px+'" y1="'+(yt-len).toFixed(1)+'" x2="'+px+'" y2="'+(yt-2).toFixed(1)+'" stroke="#3a4b5c" stroke-width="1.4"/>';
-    g+='<path d="M'+(px-3)+' '+(yt-5).toFixed(1)+' L'+(px+3)+' '+(yt-5).toFixed(1)+' L'+px+' '+(yt-0.5).toFixed(1)+' z" fill="#3a4b5c"/>';
+  if(S.load==='uniform'){
+    for(let i=2;i<N;i+=4){ const px=X(r.x[i]), len=10+r.a[i]/aMax*22, yt=usY(i)-raftH;
+      g+='<line x1="'+px+'" y1="'+(yt-len).toFixed(1)+'" x2="'+px+'" y2="'+(yt-2).toFixed(1)+'" stroke="#3a4b5c" stroke-width="1.4"/>';
+      g+='<path d="M'+(px-3)+' '+(yt-5).toFixed(1)+' L'+(px+3)+' '+(yt-5).toFixed(1)+' L'+px+' '+(yt-0.5).toFixed(1)+' z" fill="#3a4b5c"/>';
+    }
+  } else {
+    const ci=(N-1)/2, px=X(r.x[ci]), yt=usY(ci)-raftH;
+    g+='<rect x="'+(px-6).toFixed(1)+'" y="'+(yt-13).toFixed(1)+'" width="12" height="13" fill="#5f6973"/>';      // oszlopcsonk
+    g+='<line x1="'+px.toFixed(1)+'" y1="'+(yt-54).toFixed(1)+'" x2="'+px.toFixed(1)+'" y2="'+(yt-14).toFixed(1)+'" stroke="#3a4b5c" stroke-width="3"/>';
+    g+='<path d="M'+(px-7).toFixed(1)+' '+(yt-22).toFixed(1)+' L'+(px+7).toFixed(1)+' '+(yt-22).toFixed(1)+' L'+px.toFixed(1)+' '+(yt-12).toFixed(1)+' z" fill="#3a4b5c"/>';
+    g+='<text x="'+(px+10).toFixed(1)+'" y="'+(yt-40).toFixed(1)+'" font-family="JetBrains Mono" font-size="11.5" font-weight="700" fill="#3a4b5c">F = '+S.F+' kN</text>';
   }
   // feliratok
-  g+='<text x="'+mL+'" y="20" font-family="JetBrains Mono" font-size="11" font-weight="700" fill="#3a4b5c">teher q</text>';
+  g+='<text x="'+mL+'" y="20" font-family="JetBrains Mono" font-size="11" font-weight="700" fill="#3a4b5c">'+(S.load==='uniform'?'egyenletes teher q':'koncentrált erő F')+'</text>';
   g+='<text x="'+(W-mR)+'" y="20" font-family="JetBrains Mono" font-size="11" fill="#64807d" text-anchor="end">B = '+B.toFixed(1)+' m</text>';
   g+='<text x="'+(W-mR)+'" y="'+(usY((N-1)/2)+r.p[(N-1)/2]*pSc+16).toFixed(1)+'" font-family="JetBrains Mono" font-size="10.5" font-weight="700" fill="#c2521f" text-anchor="end">talpfeszültség p(x)</text>';
   // süllyedés-jel (közép): eredeti szinttől a lemez aljáig
   const cyc=usY((N-1)/2);
   if(cyc>yref+2){
     g+='<line x1="'+(mL-4)+'" y1="'+yref+'" x2="'+(mL-4)+'" y2="'+cyc.toFixed(1)+'" stroke="#1f7a8c" stroke-width="1.4"/>';
-    g+='<text x="'+(mL-7)+'" y="'+((yref+cyc)/2).toFixed(1)+'" font-family="JetBrains Mono" font-size="10" fill="#1f7a8c" text-anchor="end" transform="rotate(-90 '+(mL-7)+' '+((yref+cyc)/2).toFixed(1)+')">s</text>';
+    g+='<text x="'+(mL-7)+'" y="'+((yref+cyc)/2).toFixed(1)+'" font-family="JetBrains Mono" font-size="9.5" fill="#1f7a8c" text-anchor="middle" transform="rotate(-90 '+(mL-7)+' '+((yref+cyc)/2).toFixed(1)+')">s = '+(r.s[(N-1)/2]*100).toFixed(1)+' cm</text>';
   }
   $("mainSvg").innerHTML=g;
 
@@ -356,25 +368,22 @@ function draw(r){
   drawCeq(r,X,mL,mR);
 }
 function drawMom(r,X,mL,mR){
-  const mid=110, sc=0.04, usable=90;            // FIX skála: px / (kNm/m) — nincs auto-normálás
+  const top=26, full=150, MAX=1000, sc=full/MAX;   // 0 fent, 1000 kNm/m lent — csak egy irányba
   let g='';
-  // rácsvonalak + léptékfeliratok (500 kNm/m-enként)
-  for(let M=500; M*sc<=usable+0.1; M+=500){
-    [1,-1].forEach(sgn=>{ const y=mid - sgn*M*sc;
-      g+='<line x1="'+mL+'" y1="'+y.toFixed(1)+'" x2="'+(W-mR)+'" y2="'+y.toFixed(1)+'" stroke="#eef0ec" stroke-width="1"/>';
-      g+='<text x="'+(mL-3)+'" y="'+(y+3).toFixed(1)+'" font-family="JetBrains Mono" font-size="8.5" fill="#9aa3ad" text-anchor="end">'+(sgn>0?'+':'−')+M+'</text>';
-    });
+  // rács + léptékfeliratok (250 kNm/m-enként, lefelé)
+  for(let M=0;M<=MAX;M+=250){ const y=top+M*sc;
+    g+='<line x1="'+mL+'" y1="'+y.toFixed(1)+'" x2="'+(W-mR)+'" y2="'+y.toFixed(1)+'" stroke="'+(M===0?'#cfc8ba':'#eef0ec')+'" stroke-width="'+(M===0?1.1:1)+'"/>';
+    g+='<text x="'+(mL-3)+'" y="'+(y+3).toFixed(1)+'" font-family="JetBrains Mono" font-size="8.5" fill="#9aa3ad" text-anchor="end">'+M+'</text>';
   }
-  g+='<line x1="'+mL+'" y1="'+mid+'" x2="'+(W-mR)+'" y2="'+mid+'" stroke="#cfc8ba" stroke-width="1.1"/>';
-  // görbe FIX skálán, a panelre klippelve
-  const cl=v=>Math.max(mid-usable,Math.min(mid+usable,v));
-  let pp='M'+X(r.x[0]).toFixed(1)+' '+mid;
-  for(let i=0;i<N;i++) pp+=' L'+X(r.x[i]).toFixed(1)+' '+cl(mid - r.Mom[i]*sc).toFixed(1);
-  pp+=' L'+X(r.x[N-1]).toFixed(1)+' '+mid+' Z';
+  // |M(x)| görbe lefelé, 1000-nél klippelve
+  const cl=v=>Math.min(top+full,v);
+  let pp='M'+X(r.x[0]).toFixed(1)+' '+top;
+  for(let i=0;i<N;i++) pp+=' L'+X(r.x[i]).toFixed(1)+' '+cl(top+Math.abs(r.Mom[i])*sc).toFixed(1);
+  pp+=' L'+X(r.x[N-1]).toFixed(1)+' '+top+' Z';
   g+='<path d="'+pp+'" fill="#2f6aa8" fill-opacity="0.22" stroke="#2f6aa8" stroke-width="1.6"/>';
-  g+='<text x="'+mL+'" y="14" font-family="JetBrains Mono" font-size="11" font-weight="700" fill="#2f6aa8">hajlító nyomaték M(x) [kNm/m]</text>';
+  g+='<text x="'+mL+'" y="14" font-family="JetBrains Mono" font-size="11" font-weight="700" fill="#2f6aa8">hajlító nyomaték |M(x)| [kNm/m]</text>';
   g+='<text x="'+(W-mR)+'" y="14" font-family="JetBrains Mono" font-size="10.5" fill="#3a4b5c" text-anchor="end">M_max = '+r.Mmax.toFixed(0)+'</text>';
-  if(r.Mmax*sc>usable) g+='<text x="'+(W-mR)+'" y="204" font-family="JetBrains Mono" font-size="9.5" fill="#c2521f" text-anchor="end">▲ csúcs a léptékskálán kívül</text>';
+  if(r.Mmax>MAX) g+='<text x="'+(W-mR)+'" y="'+(top+full+16).toFixed(1)+'" font-family="JetBrains Mono" font-size="9.5" fill="#c2521f" text-anchor="end">▼ csúcs a skálán kívül (&gt;1000)</text>';
   $("momSvg").innerHTML=g;
 }
 function drawCeq(r,X,mL,mR){
