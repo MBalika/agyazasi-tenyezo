@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ágyazási tényező — merev és hajlékony lemezalap · Talaj–szerkezet kölcsönhatás</title>
+<style>
+:root{
+  --paper:#eef1f6; --card:#f9fbfd; --grid:rgba(36,70,110,0.05); --line:#d5dde7;
+  --ink:#15212e; --ink2:#3a4b5c; --ink3:#6c7d8e;
+  --accent:#2f6aa8; --accent-soft:#dce8f5;
+  --load:#c2521f; --load-soft:#f6e2d6; --settle:#1f7a8c; --settle-soft:#d9eef1;
+  --soil:#e3d9c6; --soil-line:#b9a888; --raft:#9aa3ad; --raft-line:#5f6973;
+  --ok:#2e7d4f; --warn:#b87514; --danger:#a32626;
+  --mono:'JetBrains Mono',ui-monospace,Consolas,monospace;
+  --body:'Segoe UI',system-ui,-apple-system,sans-serif;
+  --display:'Segoe UI',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--body);background:var(--paper);color:var(--ink);font-size:16px;line-height:1.7}
+.bg{position:fixed;inset:0;z-index:-1;
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:30px 30px;}
+nav{position:sticky;top:0;z-index:300;height:54px;background:rgba(238,241,246,0.94);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:1.2rem;padding:0 1.5rem;}
+.nav-logo{font-family:var(--display);font-weight:800;font-size:14px;letter-spacing:.05em;color:var(--accent);white-space:nowrap;text-transform:uppercase}
+.nav-links{display:flex;overflow-x:auto;scrollbar-width:none}.nav-links::-webkit-scrollbar{display:none}
+.nav-link{padding:0 12px;height:54px;display:flex;align-items:center;font-size:13.5px;font-weight:500;color:var(--ink3);text-decoration:none;border-bottom:2px solid transparent;white-space:nowrap;transition:color .2s,border-color .2s;}
+.nav-link:hover{color:var(--ink)}.nav-link.active{color:var(--accent);border-bottom-color:var(--accent)}
+header.hero{max-width:1040px;margin:0 auto;padding:4rem 1.5rem 2rem}
+.hero-eyebrow{font-family:var(--mono);font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:1rem;}
+.hero h1{font-family:var(--display);font-weight:900;letter-spacing:-0.015em;font-size:clamp(2.2rem,6vw,4rem);line-height:1.04;color:var(--ink);}
+.hero h1 .thin{font-weight:300;color:var(--ink2)}
+.hero-sub{max-width:680px;margin-top:1.3rem;font-size:1.06rem;color:var(--ink2)}
+section{max-width:1040px;margin:0 auto;padding:3rem 1.5rem .6rem}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);display:flex;align-items:center;gap:.7rem;margin-bottom:.7rem;}
+.eyebrow::after{content:'';height:1px;flex:1;background:var(--line)}
+h2{font-family:var(--display);font-weight:800;font-size:clamp(1.5rem,3.5vw,2.1rem);letter-spacing:-0.01em;margin-bottom:1rem;color:var(--ink)}
+h4{font-family:var(--display);font-weight:700;font-size:.98rem;margin-bottom:.4rem;display:flex;align-items:center;gap:.5rem}
+.lead{font-size:1.05rem;color:var(--ink2);margin-bottom:1.2rem}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin:1.4rem 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:1.1rem 1.2rem}
+.card p{font-size:.95rem;color:var(--ink2)}
+.dot{width:10px;height:10px;border-radius:50%;flex:none}
+.dot.rigid{background:var(--load)}.dot.flex{background:var(--settle)}.dot.accent{background:var(--accent)}
+.formula{font-family:var(--mono);background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:.9rem 1.2rem;margin:1.2rem 0;font-size:.98rem;overflow-x:auto;}
+.note{background:var(--accent-soft);border:1px solid #bcd3ea;border-radius:10px;padding:.9rem 1.2rem;margin:1.2rem 0;font-size:.95rem;color:var(--ink2);}
+.note strong{color:var(--accent)}
+.note.warn{background:var(--load-soft);border-color:#e7c4ab}.note.warn strong{color:var(--load)}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1.4rem;margin:1.6rem 0;box-shadow:0 2px 14px rgba(20,40,60,.05)}
+.sim{display:grid;grid-template-columns:1.55fr 1fr;gap:1.2rem;align-items:start}
+@media(max-width:880px){.sim{grid-template-columns:1fr}}
+.svg-wrap{background:#fff;border:1px solid var(--line);border-radius:10px;padding:.4rem;overflow:hidden}
+.svg-wrap svg{display:block;max-width:100%;height:auto}
+.statusbar{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:.4rem}
+.chip{font-family:var(--mono);font-size:11.5px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:.35rem .6rem;color:var(--ink2)}
+.chip b{color:var(--ink)}
+.chip.hot{border-color:#e7c4ab;background:var(--load-soft)}
+.seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;margin:.5rem 0 .2rem}
+.seg button{flex:1;border:none;background:#fff;padding:7px 4px;font-size:12px;font-weight:600;color:var(--ink3);cursor:pointer;font-family:inherit;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:none}.seg button[aria-pressed=true]{background:var(--accent);color:#fff}
+.ctrl{display:flex;flex-direction:column;gap:.25rem;margin-bottom:.6rem}
+.ctrl label{font-family:var(--mono);font-size:11px;letter-spacing:.03em;color:var(--ink3);display:block;overflow:hidden}
+.ctrl label .val{color:var(--ink);font-weight:600;float:right}
+input[type=range]{width:100%;accent-color:var(--accent);height:22px}
+.classbadge{font-family:var(--mono);font-size:12px;font-weight:700;padding:.4rem .7rem;border-radius:8px;text-align:center;margin:.4rem 0 .8rem}
+table{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.9rem;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+th,td{padding:.6rem .8rem;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--accent-soft);color:var(--ink);font-family:var(--display);font-weight:700;font-size:.82rem}
+td.m{font-family:var(--mono);font-size:.85rem}
+.quiz-box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1.6rem;margin:1.6rem 0}
+.quiz-q{font-family:var(--display);font-weight:700;font-size:1.05rem;margin-bottom:1rem}
+.quiz-opts{display:flex;flex-direction:column;gap:.5rem}
+.quiz-opt{text-align:left;font-family:var(--body);font-size:.96rem;padding:.7rem 1rem;border:1px solid var(--line);border-radius:10px;background:#fff;cursor:pointer;color:var(--ink2)}
+.quiz-opt:hover:not(:disabled){border-color:var(--accent);background:var(--accent-soft)}
+.quiz-opt.correct{border-color:var(--ok);background:#e2f1e8;color:var(--ink);font-weight:600}
+.quiz-opt.wrong{border-color:var(--danger);background:#f7e3e3;color:var(--ink)}
+.quiz-expl{margin-top:1rem;padding:.9rem 1.1rem;border-radius:10px;background:var(--settle-soft);border:1px solid #bcd9de;font-size:.93rem;color:var(--ink2);display:none}
+.quiz-expl.show{display:block}
+.qbar{display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:12px;color:var(--ink3);margin-bottom:1rem}
+.progress-track{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-bottom:1.1rem}
+.progress-fill{height:100%;background:var(--accent);width:0;transition:width .3s}
+.btn{font-family:var(--display);font-weight:700;font-size:.9rem;padding:.6rem 1.2rem;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer}
+.btn:hover{opacity:.92}
+footer{max-width:1040px;margin:3rem auto 0;padding:2rem 1.5rem 3rem;border-top:1px solid var(--line);font-size:.85rem;color:var(--ink3);font-family:var(--mono)}
+.reveal{opacity:0;transform:translateY(16px);transition:opacity .6s ease,transform .6s ease}.reveal.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.reveal{opacity:1;transform:none;transition:none}}
+/* Magyar tipográfia — kiegyensúlyozott, olvasható tördelés */
+body{text-wrap:pretty}
+p,li,figcaption,blockquote,dd,.lead,.note,.card p,.hero-sub{text-wrap:pretty;hyphens:none}
+h1,h2,h3,h4,.quiz-q{text-wrap:balance}
+.formula,.eq{white-space:nowrap;overflow-x:auto}
+.formula small,.eq small{white-space:normal}
+.nowrap{white-space:nowrap}
+</style>
+</head>
+<body>
+<div class="bg"></div>
+
+<nav>
+  <span class="nav-logo">Talaj–szerkezet · Ágyazás</span>
+  <div class="nav-links">
+    <a class="nav-link" href="#bev">Bevezetés</a>
+    <a class="nav-link" href="#winkler">Winkler &amp; C</a>
+    <a class="nav-link" href="#merev">Merev / hajlékony</a>
+    <a class="nav-link" href="#szim">Szimulátor</a>
+    <a class="nav-link" href="#korrekcio">C-eloszlás</a>
+    <a class="nav-link" href="#kviz">Kvíz</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="hero-eyebrow">Talaj és szerkezet kölcsönhatása · Lemezalapok</div>
+  <h1>Ágyazási tényező<br><span class="thin">— merev és hajlékony lemezalap</span></h1>
+  <p class="hero-sub">Hogyan oszlik meg a&nbsp;talpfeszültség egy lemezalap alatt, és mekkorát süllyed? Attól függ, hogy a&nbsp;lemez a&nbsp;talajhoz képest <strong>merev</strong> vagy <strong>hajlékony</strong>. Az&nbsp;<strong>ágyazási tényező (C) nem talajállandó</strong> — a&nbsp;lemez és a&nbsp;talaj együtt dolgozik. Lent élő szimulátorban állíthatod a&nbsp;lemezvastagságot, a&nbsp;talajmerevséget és a&nbsp;terhet.</p>
+</header>
+
+<main>
+
+<section id="bev" class="reveal">
+  <div class="eyebrow">1 · Miért nem egyenletes?</div>
+  <h2>A talpfeszültség nem egyenletes</h2>
+  <p class="lead">Ha egy lemezalapot egyenletes teher terhel, kézenfekvő volna a&nbsp;talpfeszültséget is egyenletesnek venni. A&nbsp;valóságban azonban a&nbsp;talaj egy adott pontjának süllyedése a&nbsp;<strong>környező terhektől is függ</strong> (rugalmas féltér), ezért a&nbsp;középső rész jobban süllyedne, mint a&nbsp;szélek. Hogy a&nbsp;lemez együtt maradjon a&nbsp;talajjal (folytonos érintkezés), a&nbsp;<strong>feszültségnek és a&nbsp;süllyedésnek össze kell hangolódnia</strong> — ez a&nbsp;talaj–szerkezet kölcsönhatás.</p>
+  <div class="cards">
+    <div class="card"><h4><span class="dot rigid"></span>Merev lemez</h4><p>Közel <strong>egyenletesen süllyed</strong> (sík marad), de ehhez a&nbsp;talpfeszültségnek a&nbsp;<strong>szélek felé fel kell ugrania</strong> — „nyereg" alakú eloszlás. Nagy hajlító nyomatékok.</p></div>
+    <div class="card"><h4><span class="dot flex"></span>Hajlékony lemez</h4><p>A&nbsp;talpfeszültség <strong>követi a&nbsp;terhet</strong> (egyenletes teher → egyenletes nyomás), de a&nbsp;süllyedés <strong>teknő alakú</strong> (közép a&nbsp;legnagyobb). Kicsi nyomatékok.</p></div>
+    <div class="card"><h4><span class="dot accent"></span>A valóság</h4><p>A&nbsp;két szélső eset között van — a&nbsp;<strong>relatív merevség</strong> dönti el, hová esik. A&nbsp;lemez vastagsága, a&nbsp;talaj merevsége és a&nbsp;teher kiterjedése együtt számít.</p></div>
+  </div>
+</section>
+
+<section id="winkler" class="reveal">
+  <div class="eyebrow">2 · A modell</div>
+  <h2>A Winkler-modell és az ágyazási tényező</h2>
+  <p class="lead">A&nbsp;legegyszerűbb modellben a&nbsp;talajt <strong>független rugók</strong> sorának képzeljük (Winkler-féle ágyazás). A&nbsp;talpfeszültség arányos a&nbsp;helyi süllyedéssel:</p>
+  <div class="formula">p(x) = C · s(x)<br><small>p — talpfeszültség [kPa], s — süllyedés [m], C — ágyazási tényező [kN/m³]. A&nbsp;rugók egymástól függetlenek: a&nbsp;szomszéd terhe nem süllyeszti az&nbsp;adott pontot.</small></div>
+  <div class="note warn"><strong>Fontos:</strong> a&nbsp;C <strong>nem talajjellemző, nem konstans!</strong> Függ a&nbsp;szerkezet hajlítási merevségétől, az&nbsp;alap és a&nbsp;teher kiterjedésétől, a&nbsp;talaj alakváltozási paramétereitől, sőt a&nbsp;teher időtartamától is (rövid vs. tartós). Ugyanaz a&nbsp;talaj más-más C-t „mutat" más lemez alatt.</div>
+  <p>A&nbsp;tiszta Winkler-modell hibája: egyenletes teher alatt mindig egyenletes nyomást és sík süllyedést adna — nem mutatja a&nbsp;<strong>perem-csúcsot</strong>. Ezt a&nbsp;rugalmas féltér (a&nbsp;szomszéd terhek hatása) okozza. A&nbsp;szimulátor ezért a&nbsp;<strong>rugalmas féltérrel</strong> számol, és ebből vezeti vissza, milyen C-eloszlás felelne meg.</p>
+</section>
+
+<section id="merev" class="reveal">
+  <div class="eyebrow">3 · A két szélső eset</div>
+  <h2>Merev vs. hajlékony — egymás tükörképe</h2>
+  <p class="lead">A&nbsp;két határeset a&nbsp;<strong>talpfeszültségben és a&nbsp;süllyedésben fordítottan</strong> viselkedik. Amelyik mennyiség az&nbsp;egyiknél egyenletes, az&nbsp;a&nbsp;másiknál egyenetlen:</p>
+  <table>
+    <thead><tr><th></th><th>Talpfeszültség p(x)</th><th>Süllyedés s(x)</th><th>Nyomaték a lemezben</th></tr></thead>
+    <tbody>
+      <tr><td class="m"><b>Merev</b></td><td>egyenetlen — <strong>perem-csúcs</strong> (nyereg)</td><td>egyenletes (sík, billenhet)</td><td><strong>nagy</strong></td></tr>
+      <tr><td class="m"><b>Hajlékony</b></td><td>egyenletes — <strong>követi a&nbsp;terhet</strong></td><td>egyenetlen — <strong>teknő</strong> (közép max)</td><td>kicsi</td></tr>
+    </tbody>
+  </table>
+  <p>A&nbsp;tervezői gyakorlatban a&nbsp;merev viselkedést Winkler-modellben úgy közelítik, hogy az&nbsp;ágyazási tényezőt a&nbsp;<strong>szélek felé megnövelik</strong> (pl. szélső sávban 1,6×, belső részen 0,8×; sarkokban akár 4×) — épp ezt a&nbsp;perem-csúcsot pótolva.</p>
+</section>
+
+<section id="szim" class="reveal">
+  <div class="eyebrow">4 · A fő attrakció</div>
+  <h2>Interaktív lemez–talaj szimulátor</h2>
+  <p class="lead">Állítsd a&nbsp;<strong>lemezvastagságot</strong> (merevség), a&nbsp;<strong>talaj merevségét</strong> és a&nbsp;<strong>terhet</strong>. A&nbsp;modell egy rugalmas féltérre ültetett lemezt old meg (befolyásmátrix), és élőben rajzolja a&nbsp;talpfeszültséget, a&nbsp;süllyedési teknőt, a&nbsp;rugókat és a&nbsp;nyomatéki ábrát.</p>
+  <div class="panel">
+    <div class="sim">
+      <div>
+        <div class="svg-wrap"><svg id="mainSvg" viewBox="0 0 600 430" role="img" aria-label="Lemezalap talpfeszültség és süllyedés"></svg></div>
+        <div class="svg-wrap" style="margin-top:.6rem"><svg id="momSvg" viewBox="0 0 600 150" role="img" aria-label="Hajlító nyomaték a lemezben"></svg></div>
+      </div>
+      <div>
+        <div class="statusbar" id="statusBar"></div>
+        <div class="classbadge" id="classBadge"></div>
+        <div class="seg" id="loadSeg" role="group">
+          <button data-l="uniform" aria-pressed="true">Egyenletes teher</button>
+          <button data-l="column" aria-pressed="false">Középső oszlopteher</button>
+        </div>
+        <div class="ctrl"><label>Lemezvastagság t [m] <span class="val" id="tV"></span></label><input type="range" id="t" min="0.2" max="1.6" step="0.05"></div>
+        <div class="ctrl"><label>Lemezszélesség B [m] <span class="val" id="bV"></span></label><input type="range" id="B" min="4" max="20" step="0.5"></div>
+        <div class="ctrl"><label>Talaj rugalmassági modulusa E<sub>talaj</sub> [MPa] <span class="val" id="esV"></span></label><input type="range" id="es" min="3" max="80" step="1"></div>
+        <div class="ctrl"><label>Átlagos teher q [kPa] <span class="val" id="qV"></span></label><input type="range" id="q" min="20" max="250" step="10"></div>
+        <p style="font-size:.86rem;margin-top:.6rem">A&nbsp;felső ábrán a&nbsp;<span style="color:var(--load);font-weight:700">talpfeszültség</span> (lefelé), a&nbsp;<span style="color:var(--settle);font-weight:700">süllyedési teknő</span> (a&nbsp;lemez lehajlása) és a&nbsp;Winkler-rugók; alatta a&nbsp;<strong>hajlító nyomaték</strong>. Növeld a&nbsp;vastagságot → merevebb (perem-csúcs, nagy nyomaték); vékonyítsd → hajlékony (teher követése, teknő).</p>
+      </div>
+    </div>
+  </div>
+  <div class="note warn"><strong>Próbáld ki:</strong> vastag lemez (t = 1,5 m) puha talajon (E<sub>talaj</sub> = 5 MPa) → erősen <strong>merev</strong>: a&nbsp;talpfeszültség a&nbsp;széleken felugrik, a&nbsp;süllyedés szinte sík, a&nbsp;nyomaték nagy. Vékony lemez (t = 0,25 m) kemény talajon → <strong>hajlékony</strong>: a&nbsp;nyomás követi a&nbsp;terhet, a&nbsp;süllyedés teknő. Válts <strong>oszlopteherre</strong>: hajlékonynál a&nbsp;nyomás a&nbsp;közép alá koncentrálódik, merevnél a&nbsp;szélekre is „szétterül".</div>
+</section>
+
+<section id="korrekcio" class="reveal">
+  <div class="eyebrow">5 · A bizonyíték</div>
+  <h2>Az egyenértékű ágyazási tényező eloszlása</h2>
+  <p class="lead">Ha a&nbsp;szimulátor eredményéből visszaszámoljuk a&nbsp;helyi <span class="nowrap">C(x) = p(x) / s(x)</span> értéket, látszik, hogy <strong>nem állandó</strong>: merev lemeznél a&nbsp;<strong>széleken nagyobb</strong>, mint középen — pontosan ez indokolja a&nbsp;„perem 1,6× / közép 0,8×" korrekciót. Az&nbsp;alábbi ábra a&nbsp;szimulátor aktuális állapotából számolt C(x)-et mutatja, a&nbsp;lemez átlagos C-jéhez viszonyítva.</p>
+  <div class="panel">
+    <div class="svg-wrap"><svg id="cSvg" viewBox="0 0 600 220" role="img" aria-label="Egyenértékű ágyazási tényező eloszlása"></svg></div>
+  </div>
+  <div class="note"><strong>Tanulság:</strong> az&nbsp;ágyazási tényező a&nbsp;talaj <em>és</em> a&nbsp;szerkezet közös „terméke". Ezért a&nbsp;geotechnikai és a&nbsp;tartószerkezeti tervezőnek a&nbsp;lemezalapot <strong>együtt</strong> kell elemeznie — a&nbsp;C felvétele önmagában, a&nbsp;szerkezet ismerete nélkül, megbízhatatlan.</div>
+</section>
+
+<section id="kviz" class="reveal">
+  <div class="eyebrow">6 · Tudáspróba</div>
+  <h2>Kvíz — 10 kérdés</h2>
+  <div class="quiz-box">
+    <div class="qbar"><span id="qCount"></span><span id="qScoreLive"></span></div>
+    <div class="progress-track"><div class="progress-fill" id="qProg"></div></div>
+    <div id="quizMain">
+      <div class="quiz-q" id="qText"></div>
+      <div class="quiz-opts" id="qOpts"></div>
+      <div class="quiz-expl" id="qExpl"></div>
+      <button class="btn" id="qNext" style="display:none;margin-top:1rem">Következő →</button>
+    </div>
+    <div id="quizResult" style="display:none;text-align:center">
+      <div style="font-family:var(--display);font-weight:800;font-size:1.5rem;margin:.5rem 0" id="qFinal"></div>
+      <div id="qMsg" style="color:var(--ink2);margin-bottom:1rem"></div>
+      <button class="btn" id="qRestart">Újra</button>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  Ágyazási tényező — merev és hajlékony lemezalap · Talaj és szerkezet kölcsönhatása · interaktív tananyag · Geotechnika. A&nbsp;modell szemléltető (2D, rugalmas féltér, befolyásmátrix, teljes érintkezés); valós tervezés: MSZ EN 1997 (EC7) és végeselemes (Winkler/féltér) számítás.
+</footer>
+
+<script>
+const $=id=>document.getElementById(id);
+/* ───────── állapot ───────── */
+const S={t:0.5,B:10,es:20,q:120,load:'uniform'};
+const DEF=Object.assign({},S);
+const EC=3.0e7;          // beton rugalmassági modulus [kPa] (~30 GPa)
+const NU=0.30;           // talaj Poisson-tényező
+const N=41;              // lemez-osztás
+
+/* ───────── lineáris algebra ───────── */
+function solve(A,b){ // Gauss-elimináció részleges főelem-választással; A: n×n, b: n → x
+  const n=b.length, M=A.map(r=>r.slice()), x=b.slice();
+  for(let k=0;k<n;k++){
+    let p=k; for(let i=k+1;i<n;i++) if(Math.abs(M[i][k])>Math.abs(M[p][k])) p=i;
+    if(p!==k){const tm=M[p];M[p]=M[k];M[k]=tm; const tb=x[p];x[p]=x[k];x[k]=tb;}
+    const piv=M[k][k]||1e-12;
+    for(let i=k+1;i<n;i++){ const f=M[i][k]/piv; if(!f)continue;
+      for(let j=k;j<n;j++) M[i][j]-=f*M[k][j]; x[i]-=f*x[k]; }
+  }
+  for(let i=n-1;i>=0;i--){ let s=x[i]; for(let j=i+1;j<n;j++) s-=M[i][j]*x[j]; x[i]=s/(M[i][i]||1e-12); }
+  return x;
+}
+function matVec(A,v){return A.map(r=>{let s=0;for(let j=0;j<v.length;j++)s+=r[j]*v[j];return s;});}
+
+/* ───────── talaj-rugalmasság (befolyásmátrix) ─────────
+   s = M · p ,  ahol p a talpfeszültség [kPa], s a süllyedés [m].
+   Síkalakváltozású rugalmas féltér vonalteher-magja (Flamant), B referenciatávval. */
+function buildMod(){
+  const B=S.B, b=B/N, Ep=S.es*1000/(1-NU*NU);   // E' [kPa]
+  const c=2/(Math.PI*Ep);
+  const x=[]; for(let i=0;i<N;i++) x.push(-B/2+(i+0.5)*b);
+  const M=[];
+  for(let i=0;i<N;i++){ M[i]=[];
+    for(let j=0;j<N;j++){
+      if(i===j) M[i][j]=c*b*(Math.log(2*B/b)+1);
+      else      M[i][j]=c*b*Math.log(B/Math.abs(x[i]-x[j]));
+    }
+  }
+  return {M,x,b};
+}
+
+/* ───────── megoldás: merev/hajlékony interpoláció ───────── */
+function analyse(){
+  const {M,x,b}=buildMod(), B=S.B;
+  // alkalmazott teher-eloszlás a(x) [kPa], azonos összteherrel (Q = q·B)
+  const a=new Array(N).fill(0);
+  if(S.load==='uniform'){ for(let i=0;i<N;i++)a[i]=S.q; }
+  else { // középső oszlopteher: a teljes terhet a középső ~1,5 m-re koncentráljuk
+    const wcol=Math.max(1.5,2*b), Q=S.q*B, half=wcol/2;
+    let cnt=0; for(let i=0;i<N;i++) if(Math.abs(x[i])<=half) cnt++;
+    const pc=Q/(cnt*b); for(let i=0;i<N;i++) if(Math.abs(x[i])<=half) a[i]=pc;
+  }
+  const Qtot=a.reduce((s,v)=>s+v*b,0);
+  // hajlékony határeset: p = a (a lemez közvetlenül átadja a terhet)
+  const pFlex=a.slice();
+  // merev határeset: egyenletes süllyedés → M·(p·b) = s0 · 1
+  const y=solve(M,new Array(N).fill(1));       // y = M^{-1} · 1
+  const sumY=y.reduce((s,v)=>s+v,0);
+  const s0=Qtot/(b*sumY);
+  const pRig=y.map(v=>s0*v);                    // perem-csúcsos eloszlás
+  // relatív merevség és keverési tényező
+  const I=Math.pow(S.t,3)/12;
+  const Krel=(EC*I)/((S.es*1000)*Math.pow(B,3));
+  const lam=Krel/(Krel+0.018);                  // 0 = hajlékony, 1 = merev
+  // kevert talpfeszültség + süllyedés
+  const p=[]; for(let i=0;i<N;i++) p[i]=(1-lam)*pFlex[i]+lam*pRig[i];
+  const s=matVec(M,p);                          // süllyedés [m]
+  // hajlító nyomaték: kettős integrál a nettó (a−p) terhelésből, szabad végekkel
+  const net=p.map((pi,i)=>a[i]-pi);             // [kPa] (lefelé poz. teher − reakció)
+  const V=[],Mom=[]; let vv=0;
+  for(let i=0;i<N;i++){ vv+=net[i]*b; V[i]=vv; }
+  let mm=0; for(let i=0;i<N;i++){ mm+=V[i]*b; Mom[i]=mm; }
+  // lineáris drift levonása (M(0)=M(vég)=0)
+  const m0=Mom[0], mL=Mom[N-1];
+  for(let i=0;i<N;i++) Mom[i]-=m0+(mL-m0)*i/(N-1);
+  // egyenértékű C(x) = p/s
+  const Ceq=p.map((pi,i)=> s[i]>1e-9? pi/s[i] : 0);
+  const Cavg=Ceq.reduce((q,v)=>q+v,0)/N;
+  return {x,b,a,p,s,Mom,Ceq,Cavg,lam,Krel,Qtot,
+    pEdge:p[0],pMid:p[(N-1)/2],sMid:s[(N-1)/2],sEdge:s[0],
+    Mmax:Math.max(...Mom.map(Math.abs))};
+}
+
+/* ───────── rajz: fő ábra ───────── */
+const W=600;
+function draw(r){
+  const B=S.B, mL=46,mR=18, plotW=W-mL-mR;
+  const X=x=> mL+(x+B/2)/B*plotW;            // modell-x → képernyő
+  const surf=150;                            // terepszint (deformálatlan) y
+  let g='';
+  // talaj
+  g+='<rect x="0" y="'+surf+'" width="'+W+'" height="'+(430-surf)+'" fill="#e3d9c6"/>';
+  g+='<rect x="0" y="'+surf+'" width="'+W+'" height="3" fill="#b9a888"/>';
+  // süllyedés-skála (auto-fit): smax → ~40 px
+  const sMaxAbs=Math.max(...r.s.map(Math.abs),1e-4), sSc=Math.min(46/sMaxAbs,4000);
+  const RY=x=> surf + (x>=0? r.s[xi(x)]*sSc : 0); // nem használt
+  function sAt(ix){return r.s[ix];}
+  // Winkler-rugók (deformálatlan felszíntől a lemez aljáig)
+  const raftH=Math.max(8,Math.min(26,S.t*16));
+  for(let i=2;i<N;i+=4){ const px=X(r.x[i]), top=surf, bot=surf+r.s[i]*sSc;
+    let zz='M'+px+' '+top.toFixed(1); const seg=6,amp=3,len=Math.max(2,bot-top);
+    for(let k=1;k<=seg;k++){const yy=top+len*k/seg, dx=(k%2?amp:-amp); zz+=' L'+(px+dx).toFixed(1)+' '+yy.toFixed(1);}
+    g+='<path d="'+zz+'" fill="none" stroke="#9aa3ad" stroke-width="1" opacity="0.65"/>';
+  }
+  // deformálatlan felszínvonal (szaggatott referencia)
+  g+='<line x1="'+mL+'" y1="'+surf+'" x2="'+(W-mR)+'" y2="'+surf+'" stroke="#64807d" stroke-width="1" stroke-dasharray="2 3" opacity="0.5"/>';
+  // LEMEZ (süllyedt középvonal mentén, raftH vastag sáv)
+  let topPath='', botPath='';
+  for(let i=0;i<N;i++){ const px=X(r.x[i]).toFixed(1), yc=surf+r.s[i]*sSc;
+    topPath+=(i?' L':'M')+px+' '+(yc-raftH/2).toFixed(1);
+    botPath+=' L'+px+' '+(yc+raftH/2).toFixed(1);
+  }
+  // a lemez kitöltése: felső él balról jobbra, alsó él jobbról balra
+  let botRev='';
+  for(let i=N-1;i>=0;i--){ const px=X(r.x[i]).toFixed(1), yc=surf+r.s[i]*sSc; botRev+=' L'+px+' '+(yc+raftH/2).toFixed(1); }
+  g+='<path d="'+topPath+botRev+' Z" fill="#aab2bb" stroke="#5f6973" stroke-width="1.2"/>';
+  // TALPFESZÜLTSÉG-ábra a lemez alatt (lefelé, rozsda), arányos p-vel
+  const pMaxAbs=Math.max(...r.p.map(Math.abs),1), pSc=70/pMaxAbs;
+  let pp='';
+  for(let i=0;i<N;i++){ const px=X(r.x[i]).toFixed(1), yb=(surf+r.s[i]*sSc+raftH/2); pp+=(i?' L':'M')+px+' '+yb.toFixed(1); }
+  for(let i=N-1;i>=0;i--){ const px=X(r.x[i]).toFixed(1), yb=(surf+r.s[i]*sSc+raftH/2)+r.p[i]*pSc; pp+=' L'+px+' '+yb.toFixed(1); }
+  g+='<path d="'+pp+' Z" fill="#c2521f" fill-opacity="0.30" stroke="#c2521f" stroke-width="1.4"/>';
+  // teher-nyilak a lemez tetején
+  const aMax=Math.max(...r.a,1);
+  for(let i=2;i<N;i+=4){ if(r.a[i]<=0)continue; const px=X(r.x[i]), len=10+r.a[i]/aMax*22, yt=surf+r.s[i]*sSc-raftH/2;
+    g+='<line x1="'+px+'" y1="'+(yt-len).toFixed(1)+'" x2="'+px+'" y2="'+(yt-2).toFixed(1)+'" stroke="#3a4b5c" stroke-width="1.4"/>';
+    g+='<path d="M'+(px-3)+' '+(yt-5).toFixed(1)+' L'+(px+3)+' '+(yt-5).toFixed(1)+' L'+px+' '+(yt-0.5).toFixed(1)+' z" fill="#3a4b5c"/>';
+  }
+  // feliratok
+  g+='<text x="'+(mL)+'" y="22" font-family="JetBrains Mono" font-size="11" font-weight="700" fill="#3a4b5c">teher q</text>';
+  g+='<text x="'+(W-mR)+'" y="22" font-family="JetBrains Mono" font-size="11" fill="#64807d" text-anchor="end">B = '+B.toFixed(1)+' m</text>';
+  g+='<text x="'+(W-mR)+'" y="'+(surf+r.s[(N-1)/2]*sSc+raftH/2+58).toFixed(1)+'" font-family="JetBrains Mono" font-size="10.5" font-weight="700" fill="#c2521f" text-anchor="end">talpfeszültség p(x)</text>';
+  // süllyedés-jel (közép)
+  const cyc=surf+r.s[(N-1)/2]*sSc;
+  g+='<line x1="'+(mL-4)+'" y1="'+surf+'" x2="'+(mL-4)+'" y2="'+cyc.toFixed(1)+'" stroke="#1f7a8c" stroke-width="1.4"/>';
+  g+='<text x="'+(mL-7)+'" y="'+((surf+cyc)/2).toFixed(1)+'" font-family="JetBrains Mono" font-size="10" fill="#1f7a8c" text-anchor="end" transform="rotate(-90 '+(mL-7)+' '+((surf+cyc)/2).toFixed(1)+')">s</text>';
+  $("mainSvg").innerHTML=g;
+  function xi(x){return Math.round((x+B/2)/B*(N-1));}
+
+  // ─── nyomatéki ábra ───
+  drawMom(r,X,mL,mR);
+  // ─── egyenértékű C ───
+  drawCeq(r,X,mL,mR);
+}
+function drawMom(r,X,mL,mR){
+  const H=150, mid=78, sc=Math.min(54/Math.max(r.Mmax,1),10);
+  let g='';
+  g+='<line x1="'+mL+'" y1="'+mid+'" x2="'+(W-mR)+'" y2="'+mid+'" stroke="#cfc8ba" stroke-width="1"/>';
+  let pp='M'+X(r.x[0]).toFixed(1)+' '+mid;
+  for(let i=0;i<N;i++) pp+=' L'+X(r.x[i]).toFixed(1)+' '+(mid - r.Mom[i]*sc).toFixed(1);
+  pp+=' L'+X(r.x[N-1]).toFixed(1)+' '+mid+' Z';
+  g+='<path d="'+pp+'" fill="#2f6aa8" fill-opacity="0.22" stroke="#2f6aa8" stroke-width="1.6"/>';
+  g+='<text x="'+mL+'" y="16" font-family="JetBrains Mono" font-size="11" font-weight="700" fill="#2f6aa8">hajlító nyomaték M(x)</text>';
+  g+='<text x="'+(W-mR)+'" y="16" font-family="JetBrains Mono" font-size="10.5" fill="#3a4b5c" text-anchor="end">M_max = '+r.Mmax.toFixed(0)+' kNm/m</text>';
+  $("momSvg").innerHTML=g;
+}
+function drawCeq(r,X,mL,mR){
+  if(!$("cSvg"))return;
+  const H=220, base=180, sc=Math.min(120/Math.max(...r.Ceq,1), 0.06);
+  let g='';
+  // átlag-vonal
+  const yAvg=base - r.Cavg*sc;
+  g+='<rect x="'+mL+'" y="20" width="'+(W-mL-mR)+'" height="'+(base-20)+'" fill="#fff"/>';
+  g+='<line x1="'+mL+'" y1="'+yAvg.toFixed(1)+'" x2="'+(W-mR)+'" y2="'+yAvg.toFixed(1)+'" stroke="#1f7a8c" stroke-width="1.2" stroke-dasharray="5 4"/>';
+  g+='<text x="'+(W-mR)+'" y="'+(yAvg-4).toFixed(1)+'" font-family="JetBrains Mono" font-size="10" fill="#1f7a8c" text-anchor="end">átlag C</text>';
+  // C(x) oszlopdiagram
+  const bw=(W-mL-mR)/N;
+  for(let i=0;i<N;i++){ const h=Math.max(0,r.Ceq[i]*sc), px=mL+i*bw;
+    const ratio=r.Cavg>0?r.Ceq[i]/r.Cavg:1;
+    const col=ratio>1.15?'#c2521f':ratio<0.9?'#2f6aa8':'#6c7d8e';
+    g+='<rect x="'+px.toFixed(1)+'" y="'+(base-h).toFixed(1)+'" width="'+(bw-0.5).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+col+'" fill-opacity="0.55"/>';
+  }
+  g+='<line x1="'+mL+'" y1="'+base+'" x2="'+(W-mR)+'" y2="'+base+'" stroke="#5f6973" stroke-width="1"/>';
+  g+='<text x="'+mL+'" y="16" font-family="JetBrains Mono" font-size="11" font-weight="700" fill="#15212e">egyenértékű C(x) = p(x) / s(x)</text>';
+  g+='<text x="'+mL+'" y="'+(base+16)+'" font-family="JetBrains Mono" font-size="10" fill="#64807d">bal perem</text>';
+  g+='<text x="'+((mL+W-mR)/2)+'" y="'+(base+16)+'" font-family="JetBrains Mono" font-size="10" fill="#64807d" text-anchor="middle">közép</text>';
+  g+='<text x="'+(W-mR)+'" y="'+(base+16)+'" font-family="JetBrains Mono" font-size="10" fill="#64807d" text-anchor="end">jobb perem</text>';
+  const rE=r.Cavg>0?(r.Ceq[0]/r.Cavg):1, rM=r.Cavg>0?(r.Ceq[(N-1)/2]/r.Cavg):1;
+  g+='<text x="'+((mL+W-mR)/2)+'" y="205" font-family="JetBrains Mono" font-size="10.5" fill="#3a4b5c" text-anchor="middle">perem ≈ '+rE.toFixed(2)+'× · közép ≈ '+rM.toFixed(2)+'× az átlaghoz képest</text>';
+  $("cSvg").innerHTML=g;
+}
+
+/* ───────── frissítés ───────── */
+function classify(lam){
+  if(lam>=0.7)return ['MEREV lemez','#f6e2d6','#c2521f'];
+  if(lam<=0.3)return ['HAJLÉKONY lemez','#d9eef1','#1f7a8c'];
+  return ['ÁTMENETI merevség','#eef1f6','#3a4b5c'];
+}
+function update(){
+  $("tV").textContent=S.t.toFixed(2)+' m';$("bV").textContent=S.B.toFixed(1)+' m';
+  $("esV").textContent=S.es+' MPa';$("qV").textContent=S.q+' kPa';
+  const r=analyse(); draw(r);
+  const [cl,bg,fg]=classify(r.lam);
+  $("classBadge").textContent=cl+'  ·  λ = '+r.lam.toFixed(2);
+  $("classBadge").style.background=bg;$("classBadge").style.color=fg;$("classBadge").style.border='1px solid '+fg;
+  const sMid=r.sMid*100, sEdge=r.sEdge*100, dS=Math.abs(sMid-sEdge);
+  $("statusBar").innerHTML=
+     '<div class="chip hot">talpfeszültség perem <b>'+r.pEdge.toFixed(0)+'</b> · közép <b>'+r.pMid.toFixed(0)+' kPa</b></div>'
+    +'<div class="chip">süllyedés közép <b>'+sMid.toFixed(1)+'</b> · perem <b>'+sEdge.toFixed(1)+' cm</b></div>'
+    +'<div class="chip">egyenlőtlen süllyedés Δs <b>'+dS.toFixed(1)+' cm</b></div>'
+    +'<div class="chip">nyomaték M<sub>max</sub> <b>'+r.Mmax.toFixed(0)+' kNm/m</b></div>'
+    +'<div class="chip">relatív merevség K <b>'+r.Krel.toFixed(3)+'</b></div>';
+}
+
+/* ───────── vezérlők ───────── */
+const fmt={t:'tV',B:'bV',es:'esV',q:'qV'};
+function sync(){for(const k in fmt)$(k).value=S[k];}
+for(const k in fmt) $(k).addEventListener('input',e=>{S[k]=parseFloat(e.target.value);update();});
+$("loadSeg").addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;S.load=b.dataset.l;
+  [...$("loadSeg").children].forEach(x=>x.setAttribute('aria-pressed',x===b));update();});
+
+/* ───────── kvíz ───────── */
+const Q=[
+ {q:"Mit jelent, hogy az ágyazási tényező (C) „nem talajállandó”?",o:["Mindig ugyanaz a talajra","Csak a talaj fajtájától függ","Függ a szerkezet merevségétől, a teher és az alap kiterjedésétől is","Csak a tehertől függ"],c:2,e:"A C a talaj ÉS a szerkezet közös jellemzője: a lemez hajlítási merevsége, a teher és az alap kiterjedése, sőt a teher időtartama is befolyásolja."},
+ {q:"Egy MEREV lemez alatt, egyenletes teher esetén a talpfeszültség…",o:["egyenletes","a szélek felé felugrik (nyereg alak)","középen a legnagyobb","zérus a széleken"],c:1,e:"A merev lemez közel egyenletesen süllyed, ehhez a talpfeszültségnek a peremek felé meg kell nőnie — perem-csúcsos, „nyereg” alakú eloszlás."},
+ {q:"Egy HAJLÉKONY lemez süllyedése egyenletes teher alatt…",o:["sík","teknő alakú (közép a legnagyobb)","a széleken a legnagyobb","állandó zérus"],c:1,e:"A hajlékony lemez talpfeszültsége követi a terhet (egyenletes), de a rugalmas féltér miatt a süllyedés teknő alakú — a középpont süllyed a legnagyobbat."},
+ {q:"A Winkler-modell alapegyenlete:",o:["p = C·s","s = C·p","p = E·s","M = C·s"],c:0,e:"p = C·s — a talpfeszültség arányos a helyi süllyedéssel; a talajt egymástól független rugók sorának képzeljük."},
+ {q:"Miért nem mutatja a tiszta (állandó C-jű) Winkler-modell a perem-csúcsot?",o:["Mert a rugók függetlenek, a szomszéd teher hatása hiányzik","Mert a C túl nagy","Mert nincs benne teher","Mert a lemez merev"],c:0,e:"A Winkler-rugók egymástól függetlenek, így a szomszédos terhek nem süllyesztik az adott pontot — épp ez a kölcsönhatás (rugalmas féltér) okozza a perem-csúcsot."},
+ {q:"A tervezésben hogyan közelítik a merev viselkedést Winkler-modellben?",o:["A C-t középen növelik","A C-t a szélek felé növelik (pl. perem 1,6×, közép 0,8×)","A C-t nullára veszik a széleken","Nem lehet közelíteni"],c:1,e:"A perem-csúcs pótlására az ágyazási tényezőt a szélek felé megnövelik (szélső sávban ~1,6×, belső részen ~0,8×, sarkokban akár 4×)."},
+ {q:"Melyik lemezben ébrednek NAGYOBB hajlító nyomatékok?",o:["A hajlékonyban","A merevben","Egyformák","Egyikben sem"],c:1,e:"A merev lemez „áthidalja” a talajt: a perem-csúcsos feszültség nagy karral hat, így nagy nyomatékok ébrednek. A hajlékony lemez követi a terhet, kis nyomatékkal."},
+ {q:"Mi NÖVELI a lemez relatív merevségét a talajhoz képest?",o:["Vékonyabb lemez","Puhább talaj és vastagabb lemez","Keményebb talaj","Kisebb teher"],c:1,e:"A relatív merevség ~ (E_beton/E_talaj)·(t/B)³: vastagabb lemez és/vagy puhább talaj → merevebb viselkedés (perem-csúcs, nagy nyomaték)."},
+ {q:"Mit jelent a folytonos érintkezés feltétele lemezalapnál?",o:["A lemez sehol nem érintkezik a talajjal","A lemez lehajlása megegyezik a talajfelszín süllyedésével","A talpfeszültség mindig egyenletes","A lemez merev"],c:1,e:"A lemez deformációs vonalának azonosnak kell lennie a talajfelszín süllyedési vonalával — különben a lemez elválna a talajtól."},
+ {q:"Miért kell a geotechnikai és a tartószerkezeti tervezőnek együtt dolgoznia a lemezalapnál?",o:["Adminisztratív okból","Mert a talpfeszültség, a süllyedés és a C kölcsönösen függ a talajtól ÉS a szerkezettől","Mert két aláírás kell","Nem szükséges"],c:1,e:"A talpfeszültség-eloszlás, a süllyedés és az ágyazási tényező a talaj és a szerkezet kölcsönhatásából adódik — a két modellt együtt kell elemezni."}
+];
+let order=[],idx=0,score=0;
+function sh(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=(i*7+idx*13+3)%(i+1);[a[i],a[j]]=[a[j],a[i]];}return a;}
+function show(){
+  const q=Q[order[idx]];
+  $("qCount").textContent=(idx+1)+" / "+Q.length;$("qScoreLive").textContent="Pont: "+score;
+  $("qProg").style.width=(idx/Q.length*100)+"%";$("qText").textContent=q.q;
+  $("qExpl").classList.remove('show');$("qNext").style.display='none';
+  const opts=sh(q.o.map((t,i)=>({t,ok:i===q.c})));
+  $("qOpts").innerHTML="";
+  opts.forEach(o=>{const b=document.createElement('button');b.className='quiz-opt';b.textContent=o.t;b.dataset.ok=o.ok?"1":"0";
+    b.addEventListener('click',()=>{[...$("qOpts").children].forEach(x=>x.disabled=true);
+      if(o.ok){b.classList.add('correct');score++;}else{b.classList.add('wrong');[...$("qOpts").children].find(x=>x.dataset.ok==="1").classList.add('correct');}
+      $("qScoreLive").textContent="Pont: "+score;$("qExpl").innerHTML="<b>Magyarázat:</b> "+q.e;$("qExpl").classList.add('show');
+      $("qNext").style.display='inline-block';$("qNext").textContent=idx<Q.length-1?"Következő →":"Eredmény →";});
+    $("qOpts").appendChild(b);});
+}
+$("qNext").addEventListener('click',()=>{idx++;if(idx<Q.length)show();else{
+  $("quizMain").style.display='none';$("quizResult").style.display='block';$("qProg").style.width='100%';
+  $("qFinal").textContent=score+" / "+Q.length;
+  const rr=score/Q.length;$("qMsg").textContent=rr>=0.9?"Kiváló! A talaj–szerkezet kölcsönhatás a kisujjadban van.":rr>=0.7?"Szép munka! Egy-két részlet még csiszolható.":rr>=0.5?"Jó alap. Játssz még a szimulátorral, és próbáld újra.":"Nézd át az alapokat, és próbáld újra — a szimulátor sokat segít!";}});
+$("qRestart").addEventListener('click',()=>{idx=0;score=0;order=sh([...Q.keys()]);$("quizMain").style.display='block';$("quizResult").style.display='none';show();});
+order=[...Q.keys()];show();
+
+/* init */
+sync();update();
+
+/* nav + reveal */
+(function(){const links=[...document.querySelectorAll('.nav-link')];
+  if(typeof IntersectionObserver==='undefined'){document.querySelectorAll('.reveal').forEach(el=>el.classList.add('in'));return;}
+  const ro=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('in');}),{threshold:.12});
+  document.querySelectorAll('.reveal').forEach(el=>ro.observe(el));
+  const so=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){const id=e.target.id;links.forEach(l=>l.classList.toggle('active',l.getAttribute('href')==='#'+id));}}),{rootMargin:'-45% 0px -50% 0px'});
+  document.querySelectorAll('section').forEach(s=>so.observe(s));
+})();
+</script>
+<script>
+/* Magyar tipográfia — automatikus sortörés-szabályok */
+(function(){
+  "use strict";
+  var NBSP=' ', WJ='⁠';
+  function fix(s){
+    s=s.replace(/([.!?…][)"'»”’]?\s+\S+) (?=\S)/g,'$1'+NBSP);
+    s=s.replace(/(^|[\s(„"'«»–—])(a|az|s|e|é|és|is) (?=\S)/gi,'$1$2'+NBSP);
+    s=s.replace(/ (?=[=+−·×<>≈≥≤≠\/])/g,NBSP);
+    s=s.replace(/([=+−·×<>≈≥≤≠\/]) /g,'$1'+NBSP);
+    s=s.replace(/(\d) (?=(?:kPa|MPa|GPa|kN\/m³|kN\/m²|kN\/m|kN|kNm\/m|kNm|m³|m²|m\/s|cm|mm|km|kg|°C|°|%|m|t|óra|nap|hét|hónap|év)(?:[\s.,;:!?)\]–—]|$))/g,'$1'+NBSP);
+    s=s.replace(/([0-9A-Za-zÀ-ſ])([\-–—])([0-9A-Za-zÀ-ſ])/g,'$1'+WJ+'$2'+WJ+'$3');
+    return s;
+  }
+  var SKIP={SCRIPT:1,STYLE:1,CODE:1,PRE:1,KBD:1,SAMP:1,INPUT:1,TEXTAREA:1,SELECT:1,OPTION:1,NOSCRIPT:1};
+  function walk(el){ if(!el)return;
+    for(var n=el.firstChild;n;n=n.nextSibling){
+      if(n.nodeType===3){ var t=n.nodeValue; if(t&&/\S/.test(t)){ var nt=fix(t); if(nt!==t)n.nodeValue=nt; } }
+      else if(n.nodeType===1){ var tag=n.tagName?n.tagName.toUpperCase():''; if(SKIP[tag])continue;
+        if(n.namespaceURI==='http://www.w3.org/2000/svg')continue;
+        if(n.classList&&n.classList.contains('nowrap'))continue; walk(n); }
+    }
+  }
+  function across(root){ if(!root||!document.createTreeWalker)return;
+    var SHORT=/(^|[\s„"'(»–—])(a|az|s|e|é|és|is) $/i, w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null), arr=[], x;
+    while(x=w.nextNode()){var p=x.parentNode,sk=false;while(p&&p.nodeType===1){var tg=p.tagName?p.tagName.toUpperCase():'';if(SKIP[tg]||p.namespaceURI==='http://www.w3.org/2000/svg'){sk=true;break;}p=p.parentNode;}if(!sk&&/\S/.test(x.nodeValue))arr.push(x);}
+    for(var i=0;i<arr.length-1;i++){var v=arr[i].nodeValue;if(SHORT.test(v)){var nv=arr[i+1].nodeValue;if(/^[^\s]/.test(nv))arr[i].nodeValue=v.replace(/ $/,NBSP);else if(/^ /.test(nv)){arr[i].nodeValue=v.replace(/ $/,NBSP);arr[i+1].nodeValue=nv.replace(/^ +/,'');}}}
+  }
+  function typo(el){ el=el||document.body; if(!el)return; walk(el); across(el); }
+  window.__typo=typo;
+  function run(){ typo(document.body); }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',run); else run();
+  setInterval(function(){ ['qText','qOpts','qExpl','statusBar','classBadge'].forEach(function(id){var el=document.getElementById(id); if(el)typo(el);}); },400);
+})();
+</script>
+</body>
+</html>
