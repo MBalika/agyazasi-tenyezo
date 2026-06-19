@@ -288,8 +288,10 @@ function analyse(){
   for(let i=0;i<N;i++){ vv+=net[i]*b; V[i]=vv; }
   let mm=0; for(let i=0;i<N;i++){ mm+=V[i]*b; Mom[i]=mm; }
   // lineáris drift levonása (M(0)=M(vég)=0)
-  const m0=Mom[0], mL=Mom[N-1];
-  for(let i=0;i<N;i++) Mom[i]-=m0+(mL-m0)*i/(N-1);
+  const m0=Mom[0], mEnd=Mom[N-1];
+  for(let i=0;i<N;i++) Mom[i]-=m0+(mEnd-m0)*i/(N-1);
+  // szimmetrizálás — a teher szimmetrikus, a numerikus aszimmetriát kiszűrjük
+  for(let i=0;i<(N-1)/2;i++){ const av=(Mom[i]+Mom[N-1-i])/2; Mom[i]=av; Mom[N-1-i]=av; }
   // egyenértékű C(x) = p/s
   const Ceq=p.map((pi,i)=> s[i]>1e-9? pi/s[i] : 0);
   const Cavg=Ceq.reduce((q,v)=>q+v,0)/N;
