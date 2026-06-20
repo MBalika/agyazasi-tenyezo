@@ -245,6 +245,13 @@ function buildD4(n,dx4){const D=[];for(let i=0;i<n;i++)D[i]=new Array(n).fill(0)
   for(let i=0;i<n;i++){ if(i===0)set(i,[2,-4,2],0); else if(i===1)set(i,[-2,5,-4,1],0);
     else if(i===n-1)set(i,[2,-4,2],n-3); else if(i===n-2)set(i,[1,-4,5,-2],n-4);
     else set(i,[1,-4,6,-4,1],i-2);} return D; }
+/* mátrix-inverz (Gauss–Jordan, részleges főelem) */
+function inv(Mm){const n=Mm.length,A=Mm.map(r=>r.slice()),R=[];for(let i=0;i<n;i++){R[i]=new Array(n).fill(0);R[i][i]=1;}
+  for(let k=0;k<n;k++){ let pv=k; for(let i=k+1;i<n;i++) if(Math.abs(A[i][k])>Math.abs(A[pv][k]))pv=i;
+    if(pv!==k){const t=A[pv];A[pv]=A[k];A[k]=t;const t2=R[pv];R[pv]=R[k];R[k]=t2;}
+    const d=A[k][k]||1e-12; for(let j=0;j<n;j++){A[k][j]/=d;R[k][j]/=d;}
+    for(let i=0;i<n;i++){if(i===k)continue;const f=A[i][k];if(!f)continue;for(let j=0;j<n;j++){A[i][j]-=f*A[k][j];R[i][j]-=f*R[k][j];}}}
+  return R;}
 
 /* ───────── talaj-rugalmasság (befolyásmátrix) ─────────
    s = M · p ,  ahol p a talpfeszültség [kPa], s a süllyedés [m].
@@ -278,10 +285,22 @@ function analyse(){
   // CSATOLT megoldás — gerenda rugalmas féltéren:  EI·w'''' = a − p ,  w = M·p
   //   →  (EI·D4·M + I)·p = a    (p talpfeszültség, w = s süllyedés)
   // A merevséggel arányosan keni szét a terhet (karakterisztikus hossz) — koncentrált erőt is.
-  const EI=EC*I, D4=buildD4(N,Math.pow(b,4)), D4M=matMat(D4,M);
-  const A=[]; for(let i=0;i<N;i++){ A[i]=new Array(N); for(let j=0;j<N;j++) A[i][j]=EI*D4M[i][j]+(i===j?1:0); }
-  const p=solve(A,a.slice());
-  const s=matVec(M,p);                          // süllyedés [m]
+  // w-alak:  (EI·D4 + Ks)·w = a ,  p = Ks·w   (Ks = M⁻¹ a talaj merevsége)
+  // HÚZÁSMENTES érintkezés: ahol p<0 lenne (a talaj „húzna"), ott a lemez elválik (p=0, felemelkedik)
+  const EI=EC*I, D4=buildD4(N,Math.pow(b,4)), Ks=inv(M);
+  let sep=new Array(N).fill(false), p, w;
+  for(let it=0; it<14; it++){
+    const A=[]; for(let i=0;i<N;i++){ A[i]=new Array(N);
+      for(let j=0;j<N;j++) A[i][j]=EI*D4[i][j] + (sep[i]?0:Ks[i][j]); }
+    w=solve(A,a.slice());
+    p=matVec(Ks,w); for(let i=0;i<N;i++) if(sep[i]) p[i]=0;
+    let changed=false;
+    for(let i=0;i<N;i++) if(!sep[i] && p[i]<-1e-6){ sep[i]=true; changed=true; }      // húzás → elválás
+    const ws=matVec(M,p);
+    for(let i=0;i<N;i++) if(sep[i] && (w[i]-ws[i])<-1e-6){ sep[i]=false; changed=true; } // áthatolás → újra érintkezik
+    if(!changed) break;
+  }
+  const s=w;                                    // lemez lehajlása (= süllyedés, kontaktnál a talajé)
   // hajlító nyomaték: kettős integrál a nettó (a−p) terhelésből, szabad végekkel
   const net=p.map((pi,i)=>a[i]-pi);             // [kPa] (lefelé poz. teher − reakció)
   const V=[],Mom=[]; let vv=0;
